@@ -1,86 +1,85 @@
 #! /usr/bin/python3
 
 
-class SparseMatrix:
-    def __init__(self, matrix_file_path=None, num_rows=None, num_cols=None):
-        self.num_rows = num_rows
-        self.num_cols = num_cols
-        self.elements = {}
-        if matrix_file_path:
-            self.load_matrix(matrix_file_path)
+class CompressedMatrix:
+    def __init__(self, file_path=None, rows=None, cols=None):
+        self.rows = rows
+        self.cols = cols
+        self.data = {}
+        if file_path:
+            self.load_from_file(file_path)
 
     def add(self, other):
-        if self.num_rows != other.num_rows or self.num_cols != other.num_cols:
-            raise ValueError("Matrices dimensions do not match for addition")
+        if self.rows != other.rows or self.cols != other.cols:
+            raise ValueError("Matrix dimensions must match for addition")
 
-        result = SparseMatrix(num_rows=self.num_rows, num_cols=self.num_cols)
+        result = CompressedMatrix(rows=self.rows, cols=self.cols)
+        result.data = self.data.copy()
 
-        result.elements = self.elements.copy()
-
-        for (row, col), value in other.elements.items():
-            new_value = result.get_element(row, col) + value
-            result.set_element(row, col, new_value)
+        for (r, c), val in other.data.items():
+            new_val = result.get_value(r, c) + val
+            result.set_value(r, c, new_val)
 
         return result
 
     def subtract(self, other):
-        if self.num_rows != other.num_rows or self.num_cols != other.num_cols:
-            raise ValueError("Matrices dimensions do not match for subtraction")
+        if self.rows != other.rows or self.cols != other.cols:
+            raise ValueError("Matrix dimensions must match for subtraction")
 
+        result = CompressedMatrix(rows=self.rows, cols=self.cols)
+        result.data = self.data.copy()
 
-        result = SparseMatrix(num_rows=self.num_rows, num_cols=self.num_cols)
-
-        result.elements = self.elements.copy()
-        for (row, col), value in other.elements.items():
-            new_value = result.get_element(row, col) - value
-            result.set_element(row, col, new_value)
+        for (r, c), val in other.data.items():
+            new_val = result.get_value(r, c) - val
+            result.set_value(r, c, new_val)
+        
         return result
 
     def multiply(self, other):
-        if self.num_cols != other.num_rows:
-            raise ValueError("Matrices dimensions do not match for multiplication")
+        if self.cols != other.rows:
+            raise ValueError("Matrix dimensions must match for multiplication")
 
-        result = SparseMatrix(num_rows=self.num_rows, num_cols=other.num_cols)
+        result = CompressedMatrix(rows=self.rows, cols=other.cols)
 
-        for (row1, col1), value1 in self.elements.items():
-            for (row2, col2), value2 in other.elements.items():
-                if col1 == row2:
-                    result.set_element(row1, col2, result.get_element(row1, col2) + value1 * value2)
+        for (r1, c1), val1 in self.data.items():
+            for (r2, c2), val2 in other.data.items():
+                if c1 == r2:
+                    result.set_value(r1, c2, result.get_value(r1, c2) + val1 * val2)
+        
         return result
 
-    def load_matrix(self, matrix_file_path):
- 
+    def load_from_file(self, file_path):
         try:
-            with open(matrix_file_path, 'r', encoding='utf-8') as file:
+            with open(file_path, 'r', encoding='utf-8') as file:
                 lines = file.readlines()
 
-                self.num_rows = int(lines[0].split('=')[1].strip())
-                self.num_cols = int(lines[1].split('=')[1].strip())
+                self.rows = int(lines[0].split('=')[1].strip())
+                self.cols = int(lines[1].split('=')[1].strip())
 
                 for line in lines[2:]:
                     line = line.strip()
                     if line:
-                        row, col, value = map(int, line.strip('()').split(','))
-                        self.elements[(row, col)] = value
-                return self.elements
+                        r, c, val = map(int, line.strip('()').split(','))
+                        self.data[(r, c)] = val
+                return self.data
         except ValueError as e:
-            raise ValueError("Input file has wrong format") from e
+            raise ValueError("File format is incorrect") from e
 
-    def save_result(self, result_file_path):
-        with open(result_file_path, 'w', encoding='utf-8') as file:
-            file.write(f"rows={self.num_rows}\n")
-            file.write(f"cols={self.num_cols}\n")
-            for (row, col), value in self.elements.items():
-                file.write(f"({row}, {col}, {value})\n")
+    def save_to_file(self, file_path):
+        with open(file_path, 'w', encoding='utf-8') as file:
+            file.write(f"rows={self.rows}\n")
+            file.write(f"cols={self.cols}\n")
+            for (r, c), val in self.data.items():
+                file.write(f"({r}, {c}, {val})\n")
 
-    def get_element(self, curr_row, curr_col):
-        return self.elements.get((curr_row, curr_col), 0)
+    def get_value(self, r, c):
+        return self.data.get((r, c), 0)
 
-    def set_element(self, curr_row, curr_col, value):
-        if value != 0:
-            self.elements[(curr_row, curr_col)] = value
-        elif (curr_row, curr_col) in self.elements:
-            del self.elements[(curr_row, curr_col)]
+    def set_value(self, r, c, val):
+        if val != 0:
+            self.data[(r, c)] = val
+        elif (r, c) in self.data:
+            del self.data[(r, c)]
 
     def __str__(self):
-        return f"rows={self.num_rows}\ncols={self.num_cols}\n(elements={self.elements})"
+        return f"rows={self.rows}\ncols={self.cols}\n(data={self.data})"
